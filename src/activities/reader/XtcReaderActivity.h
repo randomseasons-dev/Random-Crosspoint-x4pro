@@ -1,15 +1,20 @@
 #pragma once
 
+#include <I18n.h>
 #include <Xtc.h>
 
 #include <memory>
 #include <string>
 
+#include "CrossPointSettings.h"
 #include "ReaderActivity.h"
 
 class XtcReaderActivity final : public ReaderActivity {
   std::shared_ptr<Xtc> xtc;
   uint32_t currentPage = 0;
+  // Per-book orientation (CrossPointSettings::ORIENTATION), saved in the book's
+  // cache dir when changed from the menu; ORIENTATION_COUNT = follow Settings.
+  uint8_t bookOrientation = CrossPointSettings::ORIENTATION_COUNT;
 
   enum class StatusBarOverlayPosition { Bottom, Top };
   struct StatusBarInfo {
@@ -19,7 +24,12 @@ class XtcReaderActivity final : public ReaderActivity {
   };
 
   void renderPage();
+  void showPageMessage(StrId message);
   void openChapterSelection();
+  void openReaderMenu();
+  uint8_t currentOrientation() const;
+  void loadBookOrientation();
+  void saveBookOrientation(uint8_t orientation);
   void renderStatusBarOverlay(GfxRenderer& renderer, StatusBarOverlayPosition position) const;
   StatusBarInfo getStatusBarInfo() const;
   void saveProgress() const;
@@ -29,9 +39,10 @@ class XtcReaderActivity final : public ReaderActivity {
   std::string getBookTitle() const override { return xtc ? xtc->getTitle() : ""; }
   std::string getBookAuthor() const override { return xtc ? xtc->getAuthor() : ""; }
   std::string getBookThumbBmpPath() const override { return xtc ? xtc->getThumbBmpPath() : ""; }
+  bool isPictureBook() const override { return true; }
+  std::string getBookCachePath() const override { return xtc ? xtc->getCachePath() : ""; }
   bool handleFormatInput() override;
   void renderBook() override;
-  void applyInitialOrientation() override;
 
  public:
   explicit XtcReaderActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string bookPath,

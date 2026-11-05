@@ -294,8 +294,12 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t paragraphAlignment = JUSTIFIED;
   // Auto-sleep timeout setting (default 10 minutes). Legacy sleepTimeout enum values are migration-only.
   uint8_t sleepTimeoutMinutes = 10;
-  // E-ink refresh frequency (default 15 pages)
+  // E-ink refresh frequency (default 15 pages) — text books (EPUB/TXT).
   uint8_t refreshFrequency = REFRESH_15;
+  // Full-refresh frequency for picture books (.xtc/.xtch, i.e. manga). Every page by default.
+  uint8_t refreshFrequencyManga = REFRESH_1;
+  // Picture books: swap the page-turn buttons and touch zones for right-to-left (manga) reading.
+  uint8_t mangaRightToLeft = 0;
   uint8_t hyphenationEnabled = 0;
 
   // Reader screen margin settings
@@ -446,6 +450,9 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   float getReaderLineCompression() const;
   unsigned long getSleepTimeoutMs() const;
   int getRefreshFrequency() const;
+  int getRefreshFrequencyManga() const;
+  // Pages between full refreshes for a REFRESH_* option.
+  static int refreshFrequencyFor(uint8_t option);
 };
 
 // Helper macro to access settings

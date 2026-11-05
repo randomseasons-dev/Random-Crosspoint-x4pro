@@ -19,7 +19,9 @@
 #include "FirmwareFlasher.h"
 
 namespace {
-constexpr char latestReleaseUrl[] = "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/latest";
+// rs fork: updates come from the fork's own releases, so an upstream release can't
+// silently replace the customizations.
+constexpr char latestReleaseUrl[] = "https://api.github.com/repos/randomseasons-dev/crosspoint-x4pro/releases/latest";
 }  // namespace
 
 OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
@@ -214,7 +216,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
   /* Return back to default power saving for WiFi in case of failing */
   esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
 
-  if (wrongChip || tagScanner.mismatch()) {
+  if (wrongChip || tagScanner.rejected()) {
     LOG_ERR("OTA", "Firmware install aborted: wrong device");
     esp_ota_abort(otaHandle);
     return WRONG_DEVICE_ERROR;

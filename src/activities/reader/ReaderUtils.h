@@ -62,23 +62,27 @@ struct PageTurnResult {
   bool fromTilt;
 };
 
-inline PageTurnResult detectPageTurn(const MappedInputManager& input) {
+// rtl swaps the page-turn buttons (side pair and front Left/Right) for right-to-left
+// reading; tilt, the power button and the Home key keep their direction.
+inline PageTurnResult detectPageTurn(const MappedInputManager& input, const bool rtl = false) {
   const bool usePress = SETTINGS.longPressButtonBehavior == SETTINGS.OFF;
   const bool tiltNext = SETTINGS.tiltPageTurn && halTiltSensor.wasTiltedForward();
   const bool tiltPrev = SETTINGS.tiltPageTurn && halTiltSensor.wasTiltedBack();
-  const bool swapFront = input.isNavDirectionSwapped();
+  const bool swapFront = input.isNavDirectionSwapped() != rtl;
   const auto prevButton = swapFront ? MappedInputManager::Button::Right : MappedInputManager::Button::Left;
   const auto nextButton = swapFront ? MappedInputManager::Button::Left : MappedInputManager::Button::Right;
+  const auto pageBack = rtl ? MappedInputManager::Button::PageForward : MappedInputManager::Button::PageBack;
+  const auto pageForward = rtl ? MappedInputManager::Button::PageBack : MappedInputManager::Button::PageForward;
   const auto pageButtonTriggered = [&](const MappedInputManager::Button button) {
     if (usePress) return input.wasPressed(button);
     return input.wasLongPressed(button, SKIP_HOLD_MS) || input.wasReleased(button);
   };
   const bool prev =
-      tiltPrev || (pageButtonTriggered(MappedInputManager::Button::PageBack) || pageButtonTriggered(prevButton));
+      tiltPrev || (pageButtonTriggered(pageBack) || pageButtonTriggered(prevButton));
   const bool powerTurn = SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::PAGE_TURN &&
                          input.wasReleased(MappedInputManager::Button::Power);
   const bool next = input.homeButtonAction() == HomeButtonAction::NextPage || tiltNext ||
-                    pageButtonTriggered(MappedInputManager::Button::PageForward) || powerTurn ||
+                    pageButtonTriggered(pageForward) || powerTurn ||
                     pageButtonTriggered(nextButton);
   return {prev, next, tiltPrev || tiltNext};
 }
@@ -147,6 +151,9 @@ inline TouchPageTurn detectTouchPageTurn(const GfxRenderer& renderer, const Mapp
 inline bool isTouchMenuTap(const GfxRenderer& renderer, const MappedInputManager& input) {
   if (!input.hasTouch()) return false;
   if (SETTINGS.showReaderMenu != CrossPointSettings::READER_MENU_TAP) return false;
+  // Touch reader controls off: the centre tap (a tap fires on lift, so a long
+  // hold too) must not open the menu. Edge swipes stay in isTouchMenuGesture().
+  if (!SETTINGS.touchReaderControls) return false;
   int x = 0;
   int y = 0;
   if (!input.wasScreenTapped(x, y)) return false;
@@ -159,8 +166,8 @@ inline bool isTouchMenuTap(const GfxRenderer& renderer, const MappedInputManager
 
 // Reader menu opens on the menu edge-swipe or a center-third tap. Home-key
 // actions are configured separately from screen gestures.
-// Menu gestures honor showReaderMenu independently of touchReaderControls,
-// which only gates page-turn touch zones in detectTouchPageTurn().
+// Menu edge swipes honor showReaderMenu independently of touchReaderControls;
+// the centre tap is off while touchReaderControls is off (isTouchMenuTap).
 inline bool isTouchMenuGesture(const GfxRenderer& renderer, const MappedInputManager& input) {
   if (!input.hasTouch()) return false;
   if (input.wasMenuGesture()) return true;
@@ -177,7 +184,8 @@ inline bool isTouchMenuGesture(const GfxRenderer& renderer, const MappedInputMan
 // Async callers must not touch the framebuffer until
 // renderer.waitRefreshComplete() and must rebuild the differential baseline
 // before the next page turn (the tiled grayscale cleanup does).
-inline void displayWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntilFullRefresh, bool async = false) {
+inline void displayWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntilFullRefresh, const int refreshFrequency,
+                                    bool async = false) {
   const auto mode = (pagesUntilFullRefresh <= 1) ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH;
   if (async) {
     renderer.displayBufferAsync(mode);
@@ -185,7 +193,7 @@ inline void displayWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntil
     renderer.displayBuffer(mode);
   }
   if (pagesUntilFullRefresh <= 1) {
-    pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
+    pagesUntilFullRefresh = refreshFrequency;
   } else {
     pagesUntilFullRefresh--;
   }
@@ -196,15 +204,16 @@ inline void displayWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntil
 // out as one waveform — displaying the base separately makes the gray pass
 // re-drive the whole text body (a visible flash). Other panels display
 // normally. Same refresh-cadence bookkeeping as displayWithRefreshCycle.
-inline void displayBaseWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntilFullRefresh) {
+inline void displayBaseWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntilFullRefresh,
+                                        const int refreshFrequency) {
   if (renderer.grayscaleCapabilities().base != HalDisplay::GrayscaleBase::Combined) {
-    displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
+    displayWithRefreshCycle(renderer, pagesUntilFullRefresh, refreshFrequency);
     return;
   }
   const auto mode = (pagesUntilFullRefresh <= 1) ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH;
   renderer.displayGrayscaleBase(mode);
   if (pagesUntilFullRefresh <= 1) {
-    pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
+    pagesUntilFullRefresh = refreshFrequency;
   } else {
     pagesUntilFullRefresh--;
   }

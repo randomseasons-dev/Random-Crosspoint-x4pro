@@ -207,7 +207,7 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
     pos += dataLen;
   }
 
-  if (tagScanner.mismatch()) {
+  if (tagScanner.rejected()) {
     LOG_ERR("FLASH", "validate: wrong board: image=%s device=%.*s", tagScanner.foundName(),
             static_cast<int>(board_tag::boardNameLen()), board_tag::boardName());
     mbedtls_sha256_free(&shaCtx);

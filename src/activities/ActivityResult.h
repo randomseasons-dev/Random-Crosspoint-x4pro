@@ -21,6 +21,9 @@ struct MenuResult {
   int action = -1;
   uint8_t orientation = 0;
   uint8_t pageTurnOption = 0;
+  // REFRESH_* chosen for this book in the menu, or NO_CHANGE.
+  static constexpr uint8_t NO_CHANGE = 0xFF;
+  uint8_t refreshOption = NO_CHANGE;
 };
 
 struct ChapterResult {

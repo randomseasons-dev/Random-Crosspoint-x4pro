@@ -39,6 +39,18 @@ class ReaderActivity : public Activity {
   virtual void applyInitialOrientation();
   virtual void onEndOfBookRendered() {}
 
+  // Per-book full-refresh cadence, saved in the book's cache dir: a REFRESH_*
+  // value, or REFRESH_DEFAULT to follow the Settings default for the book type
+  // (picture books -> refreshFrequencyManga, text books -> refreshFrequency).
+  static constexpr uint8_t REFRESH_DEFAULT = 0xFF;
+  uint8_t bookRefreshOption = REFRESH_DEFAULT;
+  virtual bool isPictureBook() const { return false; }
+  virtual std::string getBookCachePath() const { return ""; }
+  uint8_t effectiveRefreshOption() const;
+  int refreshFrequency() const;
+  void loadBookRefreshOption();
+  void setBookRefreshOption(uint8_t option);
+
   bool handleBackNavigation();
   /** True while the end-of-book suggestion menu is on screen and owning input. */
   bool endOfBookMenuActive() const;

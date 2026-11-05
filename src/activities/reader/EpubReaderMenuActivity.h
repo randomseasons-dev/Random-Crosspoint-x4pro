@@ -27,7 +27,9 @@ class EpubReaderMenuActivity final : public UiListActivity {
     GO_HOME,
     SYNC,
     DELETE_CACHE,
-    DICTIONARY
+    DICTIONARY,
+    REFRESH_RATE,
+    MANGA_RTL
   };
 
   struct MenuItem {
@@ -36,10 +38,20 @@ class EpubReaderMenuActivity final : public UiListActivity {
   };
 
   static void buildMenuItems(std::vector<MenuItem>& items, bool hasFootnotes, bool hasBookmarks);
+  // Picture books (.xtc/.xtch): chapters, refresh, manga direction, orientation, light, home.
+  static void buildPictureMenuItems(std::vector<MenuItem>& items, bool hasChapters);
+  // Refresh option labels, indexed by REFRESH_*.
+  static constexpr StrId REFRESH_LABELS[] = {StrId::STR_PAGES_1,  StrId::STR_PAGES_5,  StrId::STR_PAGES_10,
+                                             StrId::STR_PAGES_15, StrId::STR_PAGES_30, StrId::STR_NEVER};
 
   explicit EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& title,
                                   const int currentPage, const int totalPages, const int bookProgressPercent,
-                                  const uint8_t currentOrientation, const bool hasFootnotes, bool hasBookmarks);
+                                  const uint8_t currentOrientation, const bool hasFootnotes, bool hasBookmarks,
+                                  uint8_t currentRefreshOption);
+  // Picture-book menu.
+  explicit EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const std::string& title,
+                                  int bookProgressPercent, uint8_t currentOrientation, uint8_t currentRefreshOption,
+                                  bool hasChapters);
 
   void render(RenderLock&&) override;
   bool handleHomeGesture() override;
@@ -73,6 +85,9 @@ class EpubReaderMenuActivity final : public UiListActivity {
   std::string title = "Reader Menu";
   uint8_t pendingOrientation = 0;
   uint8_t selectedPageTurnOption = 0;
+  uint8_t pendingRefreshOption = 0;
+  bool refreshChanged = false;
+  MenuResult makeResult(int action) const;
   const std::vector<StrId> orientationLabels = {StrId::STR_PORTRAIT, StrId::STR_LANDSCAPE_CW, StrId::STR_INVERTED,
                                                 StrId::STR_LANDSCAPE_CCW};
   const std::vector<const char*> pageTurnLabels = {I18N.get(StrId::STR_STATE_OFF), "1", "3", "6", "12"};

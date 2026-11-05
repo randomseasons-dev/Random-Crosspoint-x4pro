@@ -494,6 +494,13 @@ uint32_t Xtc::getPageCount() const {
   return parser->getPageCount();
 }
 
+bool Xtc::getPageInfo(const uint32_t pageIndex, xtc::PageInfo& info) const {
+  if (!loaded || !parser || pageIndex >= parser->getPageCount()) {
+    return false;
+  }
+  return const_cast<xtc::XtcParser*>(parser.get())->getPageInfo(pageIndex, info);
+}
+
 uint16_t Xtc::getPageWidth() const {
   if (!loaded || !parser) {
     return 0;

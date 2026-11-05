@@ -34,8 +34,12 @@ class Scanner {
   // True once a tag naming a different board has been seen. Valid mid-stream:
   // callers may abort a download as soon as this turns true.
   bool mismatch() const { return mismatchFound; }
+  // End-of-stream verdict for this fork: the image must carry a tag naming THIS
+  // board. Untagged images (other projects, forks, older releases) are rejected
+  // too, so nothing of unknown origin can be installed through the update paths.
+  bool rejected() const { return mismatchFound || !matchFound; }
   // Board name from the offending tag, for logging (empty until mismatch()).
-  const char* foundName() const { return mismatchFound ? captured : ""; }
+  const char* foundName() const { return mismatchFound ? captured : (matchFound ? "" : "(untagged)"); }
 
  private:
   static constexpr size_t MAX_NAME = 23;
@@ -44,6 +48,7 @@ class Scanner {
   size_t magicMatched = 0;
   bool capturing = false;
   bool mismatchFound = false;
+  bool matchFound = false;
 };
 
 }  // namespace board_tag

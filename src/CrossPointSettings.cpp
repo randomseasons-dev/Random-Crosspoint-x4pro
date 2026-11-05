@@ -359,8 +359,12 @@ unsigned long CrossPointSettings::getSleepTimeoutMs() const {
   return static_cast<unsigned long>(minutes) * 60UL * 1000UL;
 }
 
-int CrossPointSettings::getRefreshFrequency() const {
-  switch (refreshFrequency) {
+int CrossPointSettings::getRefreshFrequency() const { return refreshFrequencyFor(refreshFrequency); }
+
+int CrossPointSettings::getRefreshFrequencyManga() const { return refreshFrequencyFor(refreshFrequencyManga); }
+
+int CrossPointSettings::refreshFrequencyFor(const uint8_t option) {
+  switch (option) {
     case REFRESH_1:
       return 1;
     case REFRESH_5:
