@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <BlePageTurner.h>
 #include <BoardConfig.h>
+#include <esp_chip_info.h>
+#include <esp_flash.h>
+#include <esp_sleep.h>
 #include <Epub.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
@@ -563,7 +566,28 @@ void setupDisplayAndFonts(bool seamless = false) {
   LOG_DBG("MAIN", "Fonts setup");
 }
 
+#if FREEINK_DEVICE_X4PRO
+// rs fork: this image is built only for the Xteink X4 Pro (ESP32-S3, 16 MB flash,
+// 8 MB PSRAM). Checked before holdPowerRails() drives the first pin; on anything
+// else the chip goes straight to deep sleep. Recovery: hold the left side key
+// (GPIO0, boot strap) while resetting to reach USB download mode for re-flashing.
+static bool isX4ProClassHardware() {
+  esp_chip_info_t chip;
+  esp_chip_info(&chip);
+  if (chip.model != CHIP_ESP32S3) return false;
+  uint32_t flashBytes = 0;
+  if (esp_flash_get_size(nullptr, &flashBytes) != ESP_OK || flashBytes < 16u * 1024u * 1024u) return false;
+  return ESP.getPsramSize() >= 7u * 1024u * 1024u;  // 8 MB part, minus allocator overhead
+}
+#endif
+
 void setup() {
+#if FREEINK_DEVICE_X4PRO
+  if (!isX4ProClassHardware()) {
+    esp_rom_printf("rs-x4pro: not X4 Pro hardware, halting\n");
+    esp_deep_sleep_start();
+  }
+#endif
   BoardConfig::holdPowerRails();
 
 #ifdef ENABLE_SERIAL_LOG

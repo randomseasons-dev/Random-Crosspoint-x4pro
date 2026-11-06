@@ -20,18 +20,19 @@ namespace {
 constexpr int IDX_USERNAME = 0;
 constexpr int IDX_PASSWORD = 1;
 constexpr int IDX_SERVER_URL = 2;
-constexpr int IDX_SERVER_TYPE = 3;
-constexpr int IDX_CUSTOM_HEADER_1 = 4;
-constexpr int IDX_CUSTOM_HEADER_2 = 5;
-constexpr int IDX_MATCH_METHOD = 6;
-constexpr int IDX_SEND_METADATA = 7;
-constexpr int IDX_SYNC_BEHAVIOR = 8;
-constexpr int IDX_SYNC_CLIPPINGS = 9;
-constexpr int IDX_SIGN_UP = 10;
-constexpr int IDX_AUTHENTICATE = 11;
+// rs-x4pro: no Server Type row; the type follows the server URL (as in 1.6.5).
+constexpr int IDX_SERVER_TYPE = -1;
+constexpr int IDX_CUSTOM_HEADER_1 = 3;
+constexpr int IDX_CUSTOM_HEADER_2 = 4;
+constexpr int IDX_MATCH_METHOD = 5;
+constexpr int IDX_SEND_METADATA = 6;
+constexpr int IDX_SYNC_BEHAVIOR = 7;
+constexpr int IDX_SYNC_CLIPPINGS = 8;
+constexpr int IDX_SIGN_UP = 9;
+constexpr int IDX_AUTHENTICATE = 10;
 
 constexpr StrId menuNames[KOReaderSettingsActivity::MENU_ITEMS] = {
-    StrId::STR_USERNAME,        StrId::STR_PASSWORD,        StrId::STR_SYNC_SERVER_URL,   StrId::STR_SERVER_TYPE,
+    StrId::STR_USERNAME,        StrId::STR_PASSWORD,        StrId::STR_SYNC_SERVER_URL,
     StrId::STR_CUSTOM_HEADER_1, StrId::STR_CUSTOM_HEADER_2, StrId::STR_DOCUMENT_MATCHING, StrId::STR_SEND_METADATA,
     StrId::STR_SYNC_BEHAVIOR,   StrId::STR_SYNC_CLIPPINGS,  StrId::STR_SIGN_UP,           StrId::STR_AUTHENTICATE};
 

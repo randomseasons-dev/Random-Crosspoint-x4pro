@@ -18,8 +18,6 @@ bool ImageDimsProbe::feed(const uint8_t b) {
         state = State::JpegSoi;
       } else if (b == PNG_SIG[0]) {
         state = State::PngHeader;
-      } else if (b == 'G') {
-        state = State::GifHeader;
       } else {
         state = State::Failed;
         return false;

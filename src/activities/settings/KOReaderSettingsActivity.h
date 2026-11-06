@@ -13,7 +13,7 @@ class KOReaderSettingsActivity final : public UiListActivity {
  public:
   explicit KOReaderSettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
 
-  static constexpr int MENU_ITEMS = 12;
+  static constexpr int MENU_ITEMS = 11;  // rs-x4pro: Server Type row removed
 
   void render(RenderLock&&) override;
 

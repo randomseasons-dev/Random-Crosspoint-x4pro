@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "CrossPointSettings.h"
+#include "EpubReaderMenuActivity.h"
 #include "ProgressFile.h"
 #include "ReaderActivity.h"
 #include "ReaderUtils.h"
@@ -29,7 +30,73 @@ bool XtcReaderActivity::loadBook() {
   xtc = std::move(loadedXtc);
   xtc->setupCacheDir();
   loadProgress();
+  loadBookOrientation();
   return true;
+}
+
+uint8_t XtcReaderActivity::currentOrientation() const {
+  return bookOrientation < CrossPointSettings::ORIENTATION_COUNT ? bookOrientation : SETTINGS.orientation;
+}
+
+// orient.bin holds one ORIENTATION byte; without it the book follows the Settings orientation
+// (already applied by ReaderActivity::onEnter before loadBook()).
+void XtcReaderActivity::loadBookOrientation() {
+  HalFile f;
+  if (!Storage.openFileForRead("XTR", xtc->getCachePath() + "/orient.bin", f)) return;
+  uint8_t orientation = CrossPointSettings::ORIENTATION_COUNT;
+  if (f.read(&orientation, 1) == 1 && orientation < CrossPointSettings::ORIENTATION_COUNT) {
+    bookOrientation = orientation;
+    ReaderUtils::applyOrientation(renderer, bookOrientation);
+  }
+}
+
+void XtcReaderActivity::saveBookOrientation(const uint8_t orientation) {
+  if (orientation >= CrossPointSettings::ORIENTATION_COUNT || orientation == currentOrientation()) return;
+  bookOrientation = orientation;
+  ReaderUtils::applyOrientation(renderer, bookOrientation);
+  pagesUntilFullRefresh = 1;  // the whole page moves: clean full refresh
+  HalFile f;
+  if (Storage.openFileForWrite("XTR", xtc->getCachePath() + "/orient.bin", f)) {
+    f.write(&orientation, 1);
+  } else {
+    LOG_ERR("XTR", "Failed to save orientation");
+  }
+}
+
+void XtcReaderActivity::openReaderMenu() {
+  const uint32_t pageCount = xtc->getPageCount();
+  const uint32_t clampedPage = (pageCount > 0 && currentPage >= pageCount) ? pageCount - 1 : currentPage;
+  const int progress = pageCount > 0 ? xtc->calculateProgress(clampedPage) : 0;
+  const bool hasChapters = xtc->hasChapters() && !xtc->getChapters().empty();
+  startActivityForResult(
+      std::make_unique<EpubReaderMenuActivity>(renderer, mappedInput, xtc->getTitle(), progress, currentOrientation(),
+                                               effectiveRefreshOption(), hasChapters, selectedMenuAction),
+      [this](const ActivityResult& result) {
+        const auto& menu = std::get<MenuResult>(result.data);
+        if (menu.refreshOption != MenuResult::NO_CHANGE) {
+          setBookRefreshOption(menu.refreshOption);
+        }
+        if (menu.orientation != currentOrientation()) {
+          saveBookOrientation(menu.orientation);
+        } else {
+          // The menu turns the renderer while previewing; put back this book's frame.
+          ReaderUtils::applyOrientation(renderer, currentOrientation());
+        }
+        if (!result.isCancelled) {
+          using MA = EpubReaderMenuActivity::MenuAction;
+          switch (static_cast<MA>(menu.action)) {
+            case MA::SELECT_CHAPTER:
+              openChapterSelection();
+              return;
+            case MA::GO_HOME:
+              onGoHome();
+              return;
+            default:
+              break;
+          }
+        }
+        requestUpdate();
+      });
 }
 
 void XtcReaderActivity::openChapterSelection() {
@@ -49,17 +116,17 @@ bool XtcReaderActivity::handleFormatInput() {
     return false;
   }
 
-  // Enter chapter selection activity on Confirm release or touch menu gesture
+  // Reader menu (chapters, refresh, manga direction, orientation) on Confirm release, touch menu
+  // gesture, or a Home-key gesture the user mapped to "Reader Menu" (Settings -> Home Button Gestures).
   const bool touchMenu = ReaderUtils::isTouchMenuGesture(renderer, mappedInput);
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) || touchMenu) {
-    if (touchMenu && xtc->hasChapters() && !xtc->getChapters().empty()) haptic_feedback::touchAction();
-    openChapterSelection();
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) || touchMenu ||
+      mappedInput.homeButtonAction() == HomeButtonAction::ReaderMenu) {
+    if (touchMenu) haptic_feedback::touchAction();
+    openReaderMenu();
     return true;
   }
   return false;
 }
-
-void XtcReaderActivity::applyInitialOrientation() { renderer.setOrientation(GfxRenderer::Orientation::Portrait); }
 
 void XtcReaderActivity::renderBook() {
   if (!xtc) {
@@ -141,10 +208,57 @@ void XtcReaderActivity::renderStatusBarOverlay(GfxRenderer& renderer, const Stat
   GUI.drawStatusBar(renderer, progress, pageInfo.currentPage, pageInfo.pageCount, pageInfo.title, paddingBottom);
 }
 
+void XtcReaderActivity::showPageMessage(const StrId message) {
+  renderer.clearScreen();
+  renderer.drawCenteredText(UI_12_FONT_ID, renderer.getScreenHeight() / 2 - 100, I18N.get(message), true,
+                            EpdFontFamily::BOLD);
+  renderer.displayBuffer();
+  markPageRendered();
+}
+
 void XtcReaderActivity::renderPage() {
-  const uint16_t pageWidth = xtc->getPageWidth();
-  const uint16_t pageHeight = xtc->getPageHeight();
+  // Size each page from its own page-table entry: a book is not guaranteed to
+  // use one page size, and applying the first page's size to every page let a
+  // mismatched page be read into the wrong buffer layout.
+  xtc::PageInfo info{};
+  if (!xtc->getPageInfo(currentPage, info) || info.width == 0 || info.height == 0) {
+    LOG_ERR("XTR", "No page-table entry for page %lu", currentPage);
+    showPageMessage(StrId::STR_PAGE_LOAD_ERROR);
+    return;
+  }
+  const uint16_t pageWidth = info.width;
+  const uint16_t pageHeight = info.height;
   const uint8_t bitDepth = xtc->getBitDepth();
+
+  // Safety check: the page must fit the screen as stored, or turned 90 degrees.
+  // Turned pages: a portrait-shaped page on a landscape screen is a landscape page
+  // stored rotated clockwise (xteink all-in-one converter), so it is turned back
+  // counter-clockwise; a landscape-shaped page on a portrait screen is turned clockwise.
+  const int screenW = renderer.getScreenWidth();
+  const int screenH = renderer.getScreenHeight();
+  const bool fitsAsStored = pageWidth <= screenW && pageHeight <= screenH;
+  const bool fitsTurned = pageHeight <= screenW && pageWidth <= screenH;
+  if (!fitsAsStored && !fitsTurned) {
+    LOG_ERR("XTR", "Page %lu is %ux%u, screen is %dx%d", currentPage, pageWidth, pageHeight, screenW, screenH);
+    showPageMessage(StrId::STR_PAGE_SIZE_UNSUPPORTED);
+    return;
+  }
+  const bool turned = !fitsAsStored;
+  const bool turnBack = turned && pageWidth < pageHeight;
+  const int offX = (screenW - (turned ? pageHeight : pageWidth)) / 2;
+  const int offY = (screenH - (turned ? pageWidth : pageHeight)) / 2;
+  const auto plot = [&](const uint16_t x, const uint16_t y, const bool state) {
+    int lx = x;
+    int ly = y;
+    if (turnBack) {
+      lx = y;
+      ly = pageWidth - 1 - x;
+    } else if (turned) {
+      lx = pageHeight - 1 - y;
+      ly = x;
+    }
+    renderer.drawPixel(lx + offX, ly + offY, state);
+  };
 
   size_t pageBufferSize;
   if (bitDepth == 2) {
@@ -156,9 +270,7 @@ void XtcReaderActivity::renderPage() {
   uint8_t* pageBuffer = static_cast<uint8_t*>(malloc(pageBufferSize));
   if (!pageBuffer) {
     LOG_ERR("XTR", "Failed to allocate page buffer (%lu bytes)", pageBufferSize);
-    renderer.clearScreen();
-    renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_MEMORY_ERROR), true, EpdFontFamily::BOLD);
-    renderer.displayBuffer();
+    showPageMessage(StrId::STR_MEMORY_ERROR);
     return;
   }
 
@@ -167,9 +279,7 @@ void XtcReaderActivity::renderPage() {
     LOG_ERR("XTR", "Failed to load page %lu: bufferSize=%lu bitDepth=%u error=%s", currentPage, pageBufferSize,
             bitDepth, xtc::errorToString(xtc->getLastError()));
     free(pageBuffer);
-    renderer.clearScreen();
-    renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_PAGE_LOAD_ERROR), true, EpdFontFamily::BOLD);
-    renderer.displayBuffer();
+    showPageMessage(StrId::STR_PAGE_LOAD_ERROR);
     return;
   }
 
@@ -196,7 +306,7 @@ void XtcReaderActivity::renderPage() {
     for (uint16_t y = 0; y < pageHeight; y++) {
       for (uint16_t x = 0; x < pageWidth; x++) {
         if (getPixelValue(x, y) >= 1) {
-          renderer.drawPixel(x, y, true);
+          plot(x, y, true);
         }
       }
     }
@@ -213,7 +323,7 @@ void XtcReaderActivity::renderPage() {
         renderer.displayBuffer(HalDisplay::HALF_REFRESH);
         renderer.preconditionGrayscale();
       }
-      pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
+      pagesUntilFullRefresh = refreshFrequency();
     } else {
       renderer.displayGrayscaleBase(HalDisplay::FAST_REFRESH);
       pagesUntilFullRefresh--;
@@ -223,7 +333,7 @@ void XtcReaderActivity::renderPage() {
     for (uint16_t y = 0; y < pageHeight; y++) {
       for (uint16_t x = 0; x < pageWidth; x++) {
         if (getPixelValue(x, y) == 1) {
-          renderer.drawPixel(x, y, false);
+          plot(x, y, false);
         }
       }
     }
@@ -234,7 +344,7 @@ void XtcReaderActivity::renderPage() {
       for (uint16_t x = 0; x < pageWidth; x++) {
         const uint8_t pv = getPixelValue(x, y);
         if (pv == 1 || pv == 2) {
-          renderer.drawPixel(x, y, false);
+          plot(x, y, false);
         }
       }
     }
@@ -246,7 +356,7 @@ void XtcReaderActivity::renderPage() {
     for (uint16_t y = 0; y < pageHeight; y++) {
       for (uint16_t x = 0; x < pageWidth; x++) {
         if (getPixelValue(x, y) >= 1) {
-          renderer.drawPixel(x, y, true);
+          plot(x, y, true);
         }
       }
     }
@@ -270,7 +380,7 @@ void XtcReaderActivity::renderPage() {
         const bool isBlack = !((pageBuffer[srcByte] >> srcBit) & 1);
 
         if (isBlack) {
-          renderer.drawPixel(srcX, srcY, true);
+          plot(srcX, srcY, true);
         }
       }
     }
@@ -284,7 +394,7 @@ void XtcReaderActivity::renderPage() {
     renderStatusBarOverlay(renderer, StatusBarOverlayPosition::Bottom);
   }
 
-  ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
+  ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, refreshFrequency());
 
   LOG_DBG("XTR", "Rendered page %lu/%lu (%u-bit)", currentPage + 1, xtc->getPageCount(), bitDepth);
   markPageRendered();

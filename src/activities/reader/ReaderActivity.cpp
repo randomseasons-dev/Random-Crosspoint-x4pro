@@ -47,6 +47,40 @@ std::unique_ptr<ReaderActivity> ReaderActivity::create(GfxRenderer& renderer, Ma
 
 void ReaderActivity::applyInitialOrientation() { ReaderUtils::applyOrientation(renderer, SETTINGS.orientation); }
 
+uint8_t ReaderActivity::effectiveRefreshOption() const {
+  if (bookRefreshOption != REFRESH_DEFAULT) return bookRefreshOption;
+  return isPictureBook() ? SETTINGS.refreshFrequencyManga : SETTINGS.refreshFrequency;
+}
+
+int ReaderActivity::refreshFrequency() const { return CrossPointSettings::refreshFrequencyFor(effectiveRefreshOption()); }
+
+// refresh.bin holds one REFRESH_* byte; a missing or invalid file means "follow the default".
+void ReaderActivity::loadBookRefreshOption() {
+  bookRefreshOption = REFRESH_DEFAULT;
+  const std::string dir = getBookCachePath();
+  if (dir.empty()) return;
+  HalFile f;
+  if (!Storage.openFileForRead("READER", dir + "/refresh.bin", f)) return;
+  uint8_t option = REFRESH_DEFAULT;
+  if (f.read(&option, 1) == 1 && option <= CrossPointSettings::REFRESH_NEVER) {
+    bookRefreshOption = option;
+  }
+}
+
+void ReaderActivity::setBookRefreshOption(const uint8_t option) {
+  if (option > CrossPointSettings::REFRESH_NEVER || option == bookRefreshOption) return;
+  bookRefreshOption = option;
+  pagesUntilFullRefresh = 1;  // apply now: the next page gets a full refresh, then the new cadence
+  const std::string dir = getBookCachePath();
+  if (dir.empty()) return;
+  HalFile f;
+  if (Storage.openFileForWrite("READER", dir + "/refresh.bin", f)) {
+    f.write(&option, 1);
+  } else {
+    LOG_ERR("READER", "Failed to save refresh option");
+  }
+}
+
 void ReaderActivity::disableFastInitialRefresh() { pagesUntilFullRefresh = 0; }
 
 void ReaderActivity::notePageTurn(const bool forward, const bool succeeded) {
@@ -79,6 +113,14 @@ void ReaderActivity::onEnter() {
   if (!loadBook()) {
     if (!handleLoadFailure()) finish();
     return;
+  }
+
+  // The constructor seeded the fast first refresh from the text default; redo it
+  // with this book's own cadence now that the book (and its cache dir) is known.
+  loadBookRefreshOption();
+  if (pagesUntilFullRefresh != 0) {
+    const int frequency = refreshFrequency();
+    pagesUntilFullRefresh = frequency > 1 ? frequency : 2;
   }
 
   requestUpdate();
@@ -225,8 +267,9 @@ void ReaderActivity::loop() {
   if (handleFormatInput()) return;
   if (handleBackNavigation()) return;
 
-  const auto touch = ReaderUtils::detectTouchPageTurn(renderer, mappedInput);
-  auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput);
+  const bool rtl = isPictureBook() && SETTINGS.mangaRightToLeft;
+  const auto touch = ReaderUtils::detectTouchPageTurn(renderer, mappedInput, rtl);
+  auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput, rtl);
   prevTriggered = prevTriggered || touch.prev;
   nextTriggered = nextTriggered || touch.next;
   if (!prevTriggered && !nextTriggered) return;

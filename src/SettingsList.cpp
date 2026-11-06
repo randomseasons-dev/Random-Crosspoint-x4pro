@@ -49,6 +49,10 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                          {StrId::STR_PAGES_1, StrId::STR_PAGES_5, StrId::STR_PAGES_10, StrId::STR_PAGES_15,
                           StrId::STR_PAGES_30, StrId::STR_NEVER},
                          "refreshFrequency", StrId::STR_CAT_DISPLAY));
+  emit(SettingInfo::Enum(StrId::STR_REFRESH_FREQ_MANGA, &CrossPointSettings::refreshFrequencyManga,
+                         {StrId::STR_PAGES_1, StrId::STR_PAGES_5, StrId::STR_PAGES_10, StrId::STR_PAGES_15,
+                          StrId::STR_PAGES_30, StrId::STR_NEVER},
+                         "refreshFrequencyManga", StrId::STR_CAT_DISPLAY));
   emit(SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme, homeThemeValues(), "uiTheme",
                          StrId::STR_CAT_DISPLAY));
   if (!BoardConfig::hasTouch())
@@ -144,6 +148,8 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                          {StrId::STR_FRONTLIGHT, StrId::STR_NIGHT_MODE, StrId::STR_TOUCH_READER_CONTROLS},
                          "slideSwitchAction", StrId::STR_CAT_CONTROLS));
 #endif
+  emit(SettingInfo::Toggle(StrId::STR_MANGA_RTL, &CrossPointSettings::mangaRightToLeft, "mangaRightToLeft",
+                           StrId::STR_CAT_CONTROLS));
   // The reader menu style stays available on button boards (the toolbar
   // chrome is button-navigable); only the touch controls are hidden.
   if (BoardConfig::hasTouch()) {
@@ -282,14 +288,6 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
            },
            "koHeader2Value", StrId::STR_KOREADER_SYNC)
            .withObfuscated());
-  emit(SettingInfo::DynamicEnum(
-      StrId::STR_SERVER_TYPE, {StrId::STR_CROSSPOINT, StrId::STR_KOSYNC_SERVER, StrId::STR_OTHER},
-      [] { return static_cast<uint8_t>(KOREADER_STORE.getServerType()); },
-      [](uint8_t v) {
-        KOREADER_STORE.setServerType(static_cast<KOReaderServerType>(v));
-        KOREADER_STORE.saveToFile();
-      },
-      "koServerType", StrId::STR_KOREADER_SYNC));
   emit(SettingInfo::DynamicEnum(
       StrId::STR_DOCUMENT_MATCHING, {StrId::STR_FILENAME, StrId::STR_BINARY},
       [] { return static_cast<uint8_t>(KOREADER_STORE.getMatchMethod()); },

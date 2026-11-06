@@ -167,6 +167,10 @@ std::string KOReaderCredentialStore::getBaseUrl() const {
   return url;
 }
 
+KOReaderServerType KOReaderCredentialStore::getServerType() const {
+  return getBaseUrl() == DEFAULT_SERVER_URL ? KOReaderServerType::CROSSPOINT : KOReaderServerType::KOSYNC;
+}
+
 void KOReaderCredentialStore::setServerType(KOReaderServerType type) {
   if (static_cast<uint8_t>(type) > static_cast<uint8_t>(KOReaderServerType::OTHER)) {
     type = KOReaderServerType::KOSYNC;

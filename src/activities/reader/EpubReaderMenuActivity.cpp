@@ -19,11 +19,13 @@ EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInpu
                                                const std::string& title, const int currentPage, const int totalPages,
                                                const int bookProgressPercent, const uint8_t currentOrientation,
                                                const bool hasFootnotes, const bool hasBookmarks,
-                                               const bool hasClippings, MenuAction& selectedAction)
+                                               const bool hasClippings, MenuAction& selectedAction,
+                                               const uint8_t currentRefreshOption)
     : UiListActivity("EpubReaderMenu", renderer, mappedInput),
       selectedAction(selectedAction),
       title(title),
       pendingOrientation(currentOrientation),
+      pendingRefreshOption(currentRefreshOption),
       currentPage(currentPage),
       totalPages(totalPages),
       bookProgressPercent(bookProgressPercent) {
@@ -47,6 +49,26 @@ void EpubReaderMenuActivity::onExit() {
     selectedAction = menuItems[nav.selected].action;
   }
   UiListActivity::onExit();
+}
+
+EpubReaderMenuActivity::EpubReaderMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
+                                               const std::string& title, const int bookProgressPercent,
+                                               const uint8_t currentOrientation, const uint8_t currentRefreshOption,
+                                               const bool hasChapters, MenuAction& selectedAction)
+    : UiListActivity("EpubReaderMenu", renderer, mappedInput),
+      selectedAction(selectedAction),
+      title(title),
+      pendingOrientation(currentOrientation),
+      pendingRefreshOption(currentRefreshOption),
+      bookProgressPercent(bookProgressPercent) {
+  buildPictureMenuItems(menuItems, hasChapters);
+  buildMenuRowItems();
+}
+
+MenuResult EpubReaderMenuActivity::makeResult(const int action) const {
+  MenuResult result{action, pendingOrientation, selectedPageTurnOption};
+  if (refreshChanged) result.refreshOption = pendingRefreshOption;
+  return result;
 }
 
 // Populates menuRowItems's labels/actionValue from menuItems. Called once
@@ -91,6 +113,7 @@ void EpubReaderMenuActivity::buildMenuItems(std::vector<MenuItem>& items, const 
   }
   items.push_back({MenuAction::ROTATE_SCREEN, StrId::STR_ORIENTATION});
   items.push_back({MenuAction::AUTO_PAGE_TURN, StrId::STR_AUTO_TURN_PAGES_PER_MIN});
+  items.push_back({MenuAction::REFRESH_RATE, StrId::STR_REFRESH_THIS_BOOK});
   items.push_back({MenuAction::GO_TO_PERCENT, StrId::STR_GO_TO_PERCENT});
   items.push_back({MenuAction::SCREENSHOT, StrId::STR_SCREENSHOT_BUTTON});
   items.push_back({MenuAction::DISPLAY_QR, StrId::STR_DISPLAY_QR});
@@ -115,10 +138,25 @@ void EpubReaderMenuActivity::toggleBluetooth() {
   if (SETTINGS.ble.enabled) bleturner::requestConnect();
 }
 
+void EpubReaderMenuActivity::buildPictureMenuItems(std::vector<MenuItem>& items, const bool hasChapters) {
+  items.clear();
+  items.reserve(MAX_MENU_ITEMS);
+  if (hasChapters) {
+    items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
+  }
+  items.push_back({MenuAction::REFRESH_RATE, StrId::STR_REFRESH_THIS_BOOK});
+  items.push_back({MenuAction::MANGA_RTL, StrId::STR_MANGA_RTL});
+  items.push_back({MenuAction::ROTATE_SCREEN, StrId::STR_ORIENTATION});
+  if (Frontlight.present()) {
+    items.push_back({MenuAction::FRONTLIGHT, StrId::STR_FRONTLIGHT});
+  }
+  items.push_back({MenuAction::GO_HOME, StrId::STR_GO_HOME_BUTTON});
+}
+
 void EpubReaderMenuActivity::closeCancelled() {
   ActivityResult result;
   result.isCancelled = true;
-  result.data = MenuResult{-1, pendingOrientation, selectedPageTurnOption};
+  result.data = makeResult(-1);
   setResult(std::move(result));
   finish();
 }
@@ -161,6 +199,24 @@ void EpubReaderMenuActivity::activateIndex(const int index) {
     return;
   }
 
+  if (selectedAction == MenuAction::REFRESH_RATE) {
+    optionPopup.show(StrId::STR_REFRESH_THIS_BOOK, REFRESH_LABELS, static_cast<int>(std::size(REFRESH_LABELS)),
+                     pendingRefreshOption, [this](int idx) {
+                       if (idx != pendingRefreshOption) refreshChanged = true;
+                       pendingRefreshOption = static_cast<uint8_t>(idx);
+                       requestUpdate();
+                     });
+    requestUpdate();
+    return;
+  }
+
+  if (selectedAction == MenuAction::MANGA_RTL) {
+    SETTINGS.mangaRightToLeft = SETTINGS.mangaRightToLeft == 0 ? 1 : 0;
+    SETTINGS.saveToFile();
+    requestUpdate();
+    return;
+  }
+
   if (selectedAction == MenuAction::NIGHT_MODE) {
     SETTINGS.screenInverted = SETTINGS.screenInverted == 0 ? 1 : 0;
     SETTINGS.saveToFile();
@@ -183,7 +239,7 @@ void EpubReaderMenuActivity::activateIndex(const int index) {
     return;
   }
 
-  setResult(MenuResult{static_cast<int>(selectedAction), pendingOrientation, selectedPageTurnOption});
+  setResult(makeResult(static_cast<int>(selectedAction)));
   finish();
 }
 
@@ -240,6 +296,10 @@ void EpubReaderMenuActivity::buildScreen(UiScreen& screen) {
       GUI.setCheckboxRow(menuRowItems[i], SETTINGS.ble.enabled);
     } else if (action == MenuAction::FRONTLIGHT) {
       GUI.setCheckboxRow(menuRowItems[i], Frontlight.isOn());
+    } else if (action == MenuAction::REFRESH_RATE) {
+      menuRowItems[i].value = I18N.get(REFRESH_LABELS[pendingRefreshOption % std::size(REFRESH_LABELS)]);
+    } else if (action == MenuAction::MANGA_RTL) {
+      GUI.setCheckboxRow(menuRowItems[i], SETTINGS.mangaRightToLeft);
     }
   }
 

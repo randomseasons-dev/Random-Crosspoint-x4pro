@@ -351,9 +351,14 @@ void EpubReaderActivity::openReaderMenu() {
   startActivityForResult(std::make_unique<EpubReaderMenuActivity>(
                              renderer, mappedInput, epub->getTitle(), position.displayPage(), position.totalPages,
                              bookProgressPercent, SETTINGS.orientation, !currentPageFootnotes.empty(),
-                             !cachedBookmarks.empty(), CLIPPINGS.hasClippings(), selectedMenuAction),
+                             !cachedBookmarks.empty(), CLIPPINGS.hasClippings(), selectedMenuAction,
+                             effectiveRefreshOption()),
                          [this](const ActivityResult& result) {
                            const auto& menu = std::get<MenuResult>(result.data);
+
+                           if (menu.refreshOption != MenuResult::NO_CHANGE) {
+                             setBookRefreshOption(menu.refreshOption);
+                           }
 
                            if (SETTINGS.orientation != menu.orientation) {
                              applyOrientation(menu.orientation);
@@ -2125,7 +2130,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     const auto baseMode = cleanImageBasePending ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH;
     if (!renderer.displayGrayscaleBase(HalDisplay::GrayscaleMode::Absolute, baseMode)) {
       LOG_ERR("ERS", "Could not start absolute image page; displaying B/W");
-      ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
+      ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, refreshFrequency());
       return;
     }
     LOG_DBG("ERS", "UC8279 image page: absolute quality waveform");
@@ -2139,22 +2144,22 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   } else if (combinedGrayscaleBase) {
     // Stash the base without activating; displayGrayBuffer() below commits
     // base + grays as one waveform.
-    ReaderUtils::displayBaseWithRefreshCycle(renderer, pagesUntilFullRefresh);
+    ReaderUtils::displayBaseWithRefreshCycle(renderer, pagesUntilFullRefresh, refreshFrequency());
   } else if (needsAnyGrayscale) {
     if (pagesUntilFullRefresh <= 1) {
       // A cleanup refresh settles X3 correctly only when its grayscale
       // preconditioning waveform runs before the gray planes are written.
       renderer.displayBuffer(HalDisplay::HALF_REFRESH);
       renderer.preconditionGrayscale();
-      pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
+      pagesUntilFullRefresh = refreshFrequency();
     } else if (overlapRefresh) {
-      ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, /*async=*/true);
+      ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, refreshFrequency(), /*async=*/true);
     } else {
       renderer.displayGrayscaleBase(HalDisplay::FAST_REFRESH);
       pagesUntilFullRefresh--;
     }
   } else {
-    ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
+    ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, refreshFrequency());
   }
   const auto tDisplay = millis();
 
@@ -3107,6 +3112,9 @@ std::string EpubReaderActivity::moreRowValue(int row) const {
       return (autoTurnOption == 0 || autoTurnOption >= static_cast<int>(std::size(PAGE_TURN_RATES)))
                  ? std::string(tr(STR_STATE_OFF))
                  : std::to_string(PAGE_TURN_RATES[autoTurnOption]);
+    case MA::REFRESH_RATE:
+      return I18N.get(EpubReaderMenuActivity::REFRESH_LABELS[effectiveRefreshOption() %
+                                                             std::size(EpubReaderMenuActivity::REFRESH_LABELS)]);
     default:
       return "";
   }
@@ -3134,6 +3142,13 @@ void EpubReaderActivity::activateMoreRow(int row) {
                           discardOverlayPage();
                           requestUpdate();
                         });
+      paintOverlayPopup();
+      return;
+    }
+    case MA::REFRESH_RATE: {
+      overlayPopup.show(StrId::STR_REFRESH_THIS_BOOK, EpubReaderMenuActivity::REFRESH_LABELS,
+                        static_cast<int>(std::size(EpubReaderMenuActivity::REFRESH_LABELS)), effectiveRefreshOption(),
+                        [this](int idx) { setBookRefreshOption(static_cast<uint8_t>(idx)); });
       paintOverlayPopup();
       return;
     }

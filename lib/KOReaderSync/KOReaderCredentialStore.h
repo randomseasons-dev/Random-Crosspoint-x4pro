@@ -89,9 +89,11 @@ class KOReaderCredentialStore : public PersistableStore<KOReaderCredentialStore>
 
   // Server protocol/capability profile.
   void setServerType(KOReaderServerType type);
-  KOReaderServerType getServerType() const { return serverType; }
-  bool supportsRichProgress() const { return serverType != KOReaderServerType::KOSYNC; }
-  bool supportsExtendedMetadata() const { return serverType == KOReaderServerType::OTHER; }
+  // rs-x4pro: server profiles removed. The type follows the URL as in 1.6.5: the built-in
+  // CrossPoint server gets the CrossPoint extensions, every other server strict KOSync.
+  KOReaderServerType getServerType() const;
+  bool supportsRichProgress() const { return getServerType() != KOReaderServerType::KOSYNC; }
+  bool supportsExtendedMetadata() const { return false; }
 
   // Document matching method
   void setMatchMethod(DocumentMatchMethod method);
