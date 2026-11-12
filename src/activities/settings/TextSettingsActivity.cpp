@@ -45,18 +45,14 @@ int findCurrentFontIndex(const SdCardFontRegistry* registry, const char* sdFontF
   return fontFamily < CrossPointSettings::BUILTIN_FONT_COUNT ? fontFamily : 0;
 }
 
-constexpr StrId WORD_SPACING_IDS[] = {StrId::STR_SPACING_50_PERCENT,  StrId::STR_SPACING_75_PERCENT,
-                                      StrId::STR_SPACING_100_PERCENT, StrId::STR_SPACING_125_PERCENT,
-                                      StrId::STR_SPACING_150_PERCENT, StrId::STR_SPACING_175_PERCENT,
-                                      StrId::STR_SPACING_200_PERCENT};
+constexpr StrId WORD_SPACING_IDS[] = {StrId::STR_SPACING_25_PERCENT,  StrId::STR_SPACING_50_PERCENT,
+                                      StrId::STR_SPACING_75_PERCENT,  StrId::STR_SPACING_100_PERCENT,
+                                      StrId::STR_SPACING_125_PERCENT, StrId::STR_SPACING_150_PERCENT};
 constexpr StrId CHARACTER_SPACING_IDS[] = {StrId::STR_SPACING_MINUS_2, StrId::STR_SPACING_MINUS_1,
                                            StrId::STR_SPACING_ZERO, StrId::STR_SPACING_PLUS_1,
                                            StrId::STR_SPACING_PLUS_2};
 constexpr StrId ALIGNMENT_IDS[] = {StrId::STR_JUSTIFY, StrId::STR_ALIGN_LEFT, StrId::STR_CENTER, StrId::STR_ALIGN_RIGHT,
                                    StrId::STR_BOOK_S_STYLE};
-constexpr int MARGIN_MIN = CrossPointSettings::SCREEN_MARGIN_MIN;
-constexpr int MARGIN_MAX = CrossPointSettings::SCREEN_MARGIN_MAX;
-constexpr int MARGIN_STEP = CrossPointSettings::SCREEN_MARGIN_STEP;
 constexpr int WORD_SPACING_MIN = CrossPointSettings::WORD_SPACING_MIN;
 constexpr int WORD_SPACING_MAX = CrossPointSettings::WORD_SPACING_MAX;
 constexpr int WORD_SPACING_STEP = CrossPointSettings::WORD_SPACING_STEP;
@@ -437,12 +433,17 @@ void TextSettingsActivity::confirmLayoutRow(int row) {
       requestUpdate();
       break;
     case LayoutRow::ScreenMargin: {
+      constexpr auto& MARGINS = CrossPointSettings::SCREEN_MARGIN_OPTIONS;
       std::vector<std::string> options;
-      options.reserve((MARGIN_MAX - MARGIN_MIN) / MARGIN_STEP + 1);
-      for (int m = MARGIN_MIN; m <= MARGIN_MAX; m += MARGIN_STEP) options.push_back(std::to_string(m));
-      const int cur = (std::clamp<int>(SETTINGS.screenMargin, MARGIN_MIN, MARGIN_MAX) - MARGIN_MIN) / MARGIN_STEP;
+      options.reserve(std::size(MARGINS));
+      int cur = 0;
+      for (int i = 0; i < static_cast<int>(std::size(MARGINS)); ++i) {
+        options.push_back(std::to_string(MARGINS[i]));
+        const int d = MARGINS[i] - SETTINGS.screenMargin, dc = MARGINS[cur] - SETTINGS.screenMargin;
+        if ((d < 0 ? -d : d) < (dc < 0 ? -dc : dc)) cur = i;
+      }
       optionPopup_.show(StrId::STR_SCREEN_MARGIN, options, cur, [](int idx) {
-        SETTINGS.screenMargin = static_cast<uint8_t>(MARGIN_MIN + idx * MARGIN_STEP);
+        SETTINGS.screenMargin = CrossPointSettings::SCREEN_MARGIN_OPTIONS[idx];
         SETTINGS.saveToFile();
       });
       requestUpdate();

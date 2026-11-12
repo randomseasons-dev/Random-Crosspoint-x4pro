@@ -121,13 +121,14 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   static constexpr uint8_t DEFAULT_FONT_POINT_SIZE = 14;
   // Line height as a percent of font size.
   enum LINE_COMPRESSION {
-    LINE_SPACING_100 = 0,
-    LINE_SPACING_110 = 1,
-    LINE_SPACING_120 = 2,
-    LINE_SPACING_130 = 3,
-    LINE_SPACING_145 = 4,
-    LINE_SPACING_160 = 5,
-    LINE_SPACING_175 = 6,
+    LINE_SPACING_90 = 0,
+    LINE_SPACING_95 = 1,
+    LINE_SPACING_100 = 2,
+    LINE_SPACING_110 = 3,
+    LINE_SPACING_120 = 4,
+    LINE_SPACING_130 = 5,
+    LINE_SPACING_140 = 6,
+    LINE_SPACING_150 = 7,
     LINE_COMPRESSION_COUNT
   };
   enum PARAGRAPH_ALIGNMENT {
@@ -288,8 +289,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Text rendering settings
   uint8_t extraParagraphSpacing = 1;
   uint8_t paragraphIndentSpaces = 2;
-  static constexpr uint8_t WORD_SPACING_MIN = 50;
-  static constexpr uint8_t WORD_SPACING_MAX = 200;
+  static constexpr uint8_t WORD_SPACING_MIN = 25;
+  static constexpr uint8_t WORD_SPACING_MAX = 150;
   static constexpr uint8_t WORD_SPACING_STEP = 25;
   uint8_t wordSpacing = 100;                              // percent of the font's space advance
   static constexpr uint8_t CHARACTER_SPACING_OFFSET = 2;  // stored 0..4 maps to -2..+2 px
@@ -336,10 +337,12 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t hyphenationEnabled = 0;
 
   // Reader screen margin settings
-  static constexpr uint8_t SCREEN_MARGIN_MIN = 5;
-  static constexpr uint8_t SCREEN_MARGIN_MAX = 40;
-  static constexpr uint8_t SCREEN_MARGIN_STEP = 5;
-  uint8_t screenMargin = SCREEN_MARGIN_MIN;
+  static constexpr uint8_t SCREEN_MARGIN_MIN = 1;
+  static constexpr uint8_t SCREEN_MARGIN_MAX = 25;
+  static constexpr uint8_t SCREEN_MARGIN_STEP = 1;
+  // rs3: the only selectable margins (px); saves outside this list snap to the nearest.
+  static constexpr uint8_t SCREEN_MARGIN_OPTIONS[] = {1, 5, 10, 15, 20, 25};
+  uint8_t screenMargin = 5;
   // OPDS download destination folder ("" = SD root). Global; edited from the
   // OPDS server list. Persisted via a category-less SettingInfo::String in
   // SettingsList.h, so it stays out of the on-device Settings screen.

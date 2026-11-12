@@ -21,7 +21,7 @@
 namespace {
 // rs fork: updates come from the fork's own releases, so an upstream release can't
 // silently replace the customizations.
-constexpr char latestReleaseUrl[] = "https://api.github.com/repos/randomseasons-dev/crosspoint-x4pro/releases/latest";
+constexpr char latestReleaseUrl[] = "https://api.github.com/repos/randomseasons-dev/Random-Crosspoint-x4pro/releases/latest";
 }  // namespace
 
 OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {

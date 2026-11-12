@@ -226,11 +226,39 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     sleepTimeoutMinutes = sleepTimeoutEnumToMinutes(legacyValue);
     needsResave = true;
   }
-  // "lineSpacing" saves predate the 1.0 option: Tight/Normal/Wide/Extra Wide (0..3) become 1.1..1.45.
-  if (doc["lineHeight"].isNull() && doc["lineSpacing"].is<uint8_t>()) {
-    const int legacyValue = doc["lineSpacing"].as<uint8_t>();
-    lineSpacing = legacyValue + 1 < LINE_COMPRESSION_COUNT ? static_cast<uint8_t>(legacyValue + 1) : LINE_SPACING_120;
-    needsResave = true;
+  // rs3 line spacing {0.9,0.95,1.0,1.1,1.2,1.3,1.4,1.5} is saved as "lineHeight8". Older saves:
+  // "lineHeight" = {1.0,1.1,1.2,1.3,1.45,1.6,1.75}; "lineSpacing" = Tight/Normal/Wide/Extra Wide (= 1.1..1.45).
+  if (doc["lineHeight8"].isNull()) {
+    int old7 = -1;
+    if (doc["lineHeight"].is<uint8_t>()) {
+      old7 = doc["lineHeight"].as<uint8_t>();
+    } else if (doc["lineSpacing"].is<uint8_t>()) {
+      old7 = doc["lineSpacing"].as<uint8_t>() + 1;
+    }
+    if (old7 >= 0) {
+      static constexpr uint8_t OLD7_TO_NEW[] = {LINE_SPACING_100, LINE_SPACING_110, LINE_SPACING_120, LINE_SPACING_130,
+                                                LINE_SPACING_140, LINE_SPACING_150, LINE_SPACING_150};
+      lineSpacing = old7 < 7 ? OLD7_TO_NEW[old7] : LINE_SPACING_120;
+      needsResave = true;
+    }
+  }
+  // rs3: word spacing only in 25% steps (25..150); margin only from SCREEN_MARGIN_OPTIONS.
+  {
+    int ws = (wordSpacing + WORD_SPACING_STEP / 2) / WORD_SPACING_STEP * WORD_SPACING_STEP;
+    ws = ws < WORD_SPACING_MIN ? WORD_SPACING_MIN : ws > WORD_SPACING_MAX ? WORD_SPACING_MAX : ws;
+    if (ws != wordSpacing) {
+      wordSpacing = static_cast<uint8_t>(ws);
+      needsResave = true;
+    }
+    uint8_t best = SCREEN_MARGIN_OPTIONS[0];
+    for (const uint8_t m : SCREEN_MARGIN_OPTIONS) {
+      const int dm = int(m) - int(screenMargin), db = int(best) - int(screenMargin);
+      if ((dm < 0 ? -dm : dm) < (db < 0 ? -db : db)) best = m;
+    }
+    if (best != screenMargin) {
+      screenMargin = best;
+      needsResave = true;
+    }
   }
   // Front button remap — managed by RemapFrontButtons sub-activity, not in SettingsList.
   frontButtonBack = clamp(doc["frontButtonBack"] | (uint8_t)FRONT_HW_BACK, FRONT_BUTTON_HARDWARE_COUNT, FRONT_HW_BACK);

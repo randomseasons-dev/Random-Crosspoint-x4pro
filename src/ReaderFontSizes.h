@@ -44,8 +44,8 @@ inline int builtinReaderFontVariant(const int fontId, const float scale) {
   return 0;
 }
 
-// Vector (.ttf/.otf) fonts offer every whole point size from 8 through 22.
-inline constexpr uint8_t VECTOR_READER_POINT_SIZES[] = {8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22};
+// Vector (.ttf/.otf) fonts offer every whole point size from 10 through 16 (rs3).
+inline constexpr uint8_t VECTOR_READER_POINT_SIZES[] = {10, 11, 12, 13, 14, 15, 16};
 
 // Point sizes selectable for the active reader font, ascending: the vector set
 // or installed .cpfont sizes for a known SD family, otherwise the built-in set.
