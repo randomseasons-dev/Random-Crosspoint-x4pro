@@ -13,7 +13,7 @@
 struct ReaderRenderSpec {
   int fontId = 0;
   float lineCompression = 1.0f;  // Multiplier of font size in pixels, independent of advanceY.
-  bool extraParagraphSpacing = false;
+  uint8_t extraParagraphSpacing = 0;  // paragraph gap in quarters of a line (0..4)
   uint8_t paragraphIndentSpaces = 2;
   int8_t characterSpacing = 0;
   uint8_t wordSpacingPercent = 100;

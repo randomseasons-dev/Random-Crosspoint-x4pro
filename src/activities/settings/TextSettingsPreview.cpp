@@ -88,7 +88,7 @@ void renderPreview(const GfxRenderer& renderer, PreviewLayout& layout, int previ
 
   const float compression = SETTINGS.getReaderLineCompression();
   const int lineAdvance = std::max(1, renderer.getLineHeight(fontId, compression));
-  const int paragraphGap = SETTINGS.extraParagraphSpacing ? lineAdvance / 2 : 0;
+  const int paragraphGap = lineAdvance * std::min<int>(SETTINGS.extraParagraphSpacing, 4) / 4;
 
   // Re-lay-out (and re-prewarm glyphs) only when a layout-affecting setting or the
   // geometry changed; else reuse the cache. The prewarm inputs are (fontId, constant
@@ -102,7 +102,7 @@ void renderPreview(const GfxRenderer& renderer, PreviewLayout& layout, int previ
                        .textWidth = textWidth,
                        .lineCompression = compression,
                        .alignment = SETTINGS.paragraphAlignment,
-                       .extraParagraphSpacing = SETTINGS.extraParagraphSpacing != 0,
+                       .extraParagraphSpacing = SETTINGS.extraParagraphSpacing,
                        .paragraphIndentSpaces = SETTINGS.paragraphIndentSpaces,
                        .characterSpacing = SETTINGS.getCharacterSpacing(),
                        .wordSpacingPercent = SETTINGS.wordSpacing,

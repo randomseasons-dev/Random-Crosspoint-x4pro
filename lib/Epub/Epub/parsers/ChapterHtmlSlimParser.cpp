@@ -3278,7 +3278,7 @@ void ChapterHtmlSlimParser::makePages(const bool includeLastLine, const bool par
 
     // Extra paragraph spacing if enabled (default behavior)
     if (extraParagraphSpacing) {
-      currentPageNextY += lineHeight / 2;
+      currentPageNextY += lineHeight * extraParagraphSpacing / 4;
     }
   }
 }

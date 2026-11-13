@@ -79,7 +79,7 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
   emit(SettingInfo::Enum(StrId::STR_FONT_SIZE, nullptr, {}, "fontSize", StrId::STR_CAT_READER).withTextSettings());
   // "lineHeight": fromJson() moves older "lineSpacing" saves up one slot for the added 1.0.
   emit(SettingInfo::StaticEnum(StrId::STR_LINE_SPACING, &CrossPointSettings::lineSpacing, LINE_SPACING_IDS,
-                               "lineHeight", StrId::STR_CAT_READER)
+                               "lineHeight8", StrId::STR_CAT_READER)
            .withTextSettings());
   emit(SettingInfo::Value(StrId::STR_WORD_SPACING, &CrossPointSettings::wordSpacing,
                           {CrossPointSettings::WORD_SPACING_MIN, CrossPointSettings::WORD_SPACING_MAX,
@@ -114,8 +114,10 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
       StrId::STR_ORIENTATION, &CrossPointSettings::orientation,
       {StrId::STR_PORTRAIT, StrId::STR_LANDSCAPE_CW, StrId::STR_ORIENTATION_INVERTED, StrId::STR_LANDSCAPE_CCW},
       "orientation", StrId::STR_CAT_READER));
-  emit(SettingInfo::Toggle(StrId::STR_EXTRA_SPACING, &CrossPointSettings::extraParagraphSpacing,
-                           "extraParagraphSpacing", StrId::STR_CAT_READER)
+  emit(SettingInfo::Enum(StrId::STR_EXTRA_SPACING, &CrossPointSettings::extraParagraphSpacing,
+                         {StrId::STR_STATE_OFF, StrId::STR_SPACING_25_PERCENT, StrId::STR_SPACING_50_PERCENT_DEFAULT,
+                          StrId::STR_SPACING_75_PERCENT, StrId::STR_SPACING_100_PERCENT},
+                         "paragraphSpacing5", StrId::STR_CAT_READER)
            .withTextSettings());
   emit(SettingInfo::Value(StrId::STR_PARAGRAPH_INDENTATION, &CrossPointSettings::paragraphIndentSpaces, {0, 5, 1},
                           "paragraphIndentSpaces", StrId::STR_CAT_READER)

@@ -125,9 +125,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     LINE_SPACING_110 = 1,
     LINE_SPACING_120 = 2,
     LINE_SPACING_130 = 3,
-    LINE_SPACING_145 = 4,
-    LINE_SPACING_160 = 5,
-    LINE_SPACING_175 = 6,
+    LINE_SPACING_140 = 4,
+    LINE_SPACING_150 = 5,
+    LINE_SPACING_160 = 6,
+    LINE_SPACING_170 = 7,
     LINE_COMPRESSION_COUNT
   };
   enum PARAGRAPH_ALIGNMENT {
@@ -286,9 +287,11 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Resetting to 0 (e.g. via the web UI) forces a re-sync on next WiFi connect.
   uint8_t clockHasBeenSynced = 0;
   // Text rendering settings
-  uint8_t extraParagraphSpacing = 1;
+  // Gap after each paragraph, in quarters of a line: 0 Off, 1 25%, 2 50% (default), 3 75%, 4 100%.
+  static constexpr uint8_t PARAGRAPH_SPACING_COUNT = 5;
+  uint8_t extraParagraphSpacing = 2;
   uint8_t paragraphIndentSpaces = 2;
-  static constexpr uint8_t WORD_SPACING_MIN = 50;
+  static constexpr uint8_t WORD_SPACING_MIN = 25;
   static constexpr uint8_t WORD_SPACING_MAX = 200;
   static constexpr uint8_t WORD_SPACING_STEP = 25;
   uint8_t wordSpacing = 100;                              // percent of the font's space advance
@@ -336,10 +339,10 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t hyphenationEnabled = 0;
 
   // Reader screen margin settings
-  static constexpr uint8_t SCREEN_MARGIN_MIN = 5;
-  static constexpr uint8_t SCREEN_MARGIN_MAX = 40;
+  static constexpr uint8_t SCREEN_MARGIN_MIN = 0;
+  static constexpr uint8_t SCREEN_MARGIN_MAX = 25;
   static constexpr uint8_t SCREEN_MARGIN_STEP = 5;
-  uint8_t screenMargin = SCREEN_MARGIN_MIN;
+  uint8_t screenMargin = 5;
   // OPDS download destination folder ("" = SD root). Global; edited from the
   // OPDS server list. Persisted via a category-less SettingInfo::String in
   // SettingsList.h, so it stays out of the on-device Settings screen.

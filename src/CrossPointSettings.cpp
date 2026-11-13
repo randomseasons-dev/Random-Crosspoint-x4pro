@@ -199,6 +199,29 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     needsResave = true;
   }
 
+  // rs3v2: paragraph spacing levels (0..4) live under "paragraphSpacing5"; the old on/off
+  // "extraParagraphSpacing" (on = half a line) becomes 50% / Off.
+  if (doc["paragraphSpacing5"].isNull() && !doc["extraParagraphSpacing"].isNull()) {
+    extraParagraphSpacing = (doc["extraParagraphSpacing"] | (uint8_t)1) ? 2 : 0;
+    needsResave = true;
+  }
+  // rs3v2 line spacing {1.0,1.1,...,1.7} lives under "lineHeight8". Older saves: "lineHeight" =
+  // {1.0,1.1,1.2,1.3,1.45,1.6,1.75}; "lineSpacing" = Tight/Normal/Wide/Extra Wide (= 1.1..1.45).
+  if (doc["lineHeight8"].isNull()) {
+    int old7 = -1;
+    if (doc["lineHeight"].is<uint8_t>()) {
+      old7 = doc["lineHeight"].as<uint8_t>();
+    } else if (doc["lineSpacing"].is<uint8_t>()) {
+      old7 = doc["lineSpacing"].as<uint8_t>() + 1;
+    }
+    if (old7 >= 0) {
+      static constexpr uint8_t OLD7_TO_NEW[] = {LINE_SPACING_100, LINE_SPACING_110, LINE_SPACING_120, LINE_SPACING_130,
+                                                LINE_SPACING_140, LINE_SPACING_160, LINE_SPACING_170};
+      lineSpacing = old7 < 7 ? OLD7_TO_NEW[old7] : LINE_SPACING_120;
+      needsResave = true;
+    }
+  }
+
   const auto indentSpaces = doc["paragraphIndentSpaces"];
   const bool hasSavedWidth = indentSpaces.is<int>();
   const int savedWidth = hasSavedWidth ? indentSpaces.as<int>() : 0;
@@ -224,12 +247,6 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     const uint8_t legacyValue =
         clamp(doc["sleepTimeout"] | (uint8_t)SLEEP_10_MIN, SLEEP_TIMEOUT_COUNT, (uint8_t)SLEEP_10_MIN);
     sleepTimeoutMinutes = sleepTimeoutEnumToMinutes(legacyValue);
-    needsResave = true;
-  }
-  // "lineSpacing" saves predate the 1.0 option: Tight/Normal/Wide/Extra Wide (0..3) become 1.1..1.45.
-  if (doc["lineHeight"].isNull() && doc["lineSpacing"].is<uint8_t>()) {
-    const int legacyValue = doc["lineSpacing"].as<uint8_t>();
-    lineSpacing = legacyValue + 1 < LINE_COMPRESSION_COUNT ? static_cast<uint8_t>(legacyValue + 1) : LINE_SPACING_120;
     needsResave = true;
   }
   // Front button remap — managed by RemapFrontButtons sub-activity, not in SettingsList.
@@ -335,7 +352,7 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
   spec.lineCompression = getReaderLineCompression();
   spec.characterSpacing = getCharacterSpacing();
   spec.wordSpacingPercent = wordSpacing;
-  spec.extraParagraphSpacing = extraParagraphSpacing != 0;
+  spec.extraParagraphSpacing = extraParagraphSpacing < PARAGRAPH_SPACING_COUNT ? extraParagraphSpacing : 2;
   spec.paragraphIndentSpaces = paragraphIndentSpaces;
   spec.paragraphAlignment = paragraphAlignment;
   spec.viewportWidth = viewportWidth;

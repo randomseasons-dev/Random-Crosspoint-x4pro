@@ -45,8 +45,12 @@ int findCurrentFontIndex(const SdCardFontRegistry* registry, const char* sdFontF
   return fontFamily < CrossPointSettings::BUILTIN_FONT_COUNT ? fontFamily : 0;
 }
 
-constexpr StrId WORD_SPACING_IDS[] = {StrId::STR_SPACING_50_PERCENT,  StrId::STR_SPACING_75_PERCENT,
-                                      StrId::STR_SPACING_100_PERCENT, StrId::STR_SPACING_125_PERCENT,
+constexpr StrId PARAGRAPH_SPACING_IDS[] = {StrId::STR_STATE_OFF, StrId::STR_SPACING_25_PERCENT,
+                                           StrId::STR_SPACING_50_PERCENT_DEFAULT, StrId::STR_SPACING_75_PERCENT,
+                                           StrId::STR_SPACING_100_PERCENT};
+constexpr StrId WORD_SPACING_IDS[] = {StrId::STR_SPACING_25_PERCENT,  StrId::STR_SPACING_50_PERCENT,
+                                      StrId::STR_SPACING_75_PERCENT,  StrId::STR_SPACING_100_PERCENT,
+                                      StrId::STR_SPACING_125_PERCENT,
                                       StrId::STR_SPACING_150_PERCENT, StrId::STR_SPACING_175_PERCENT,
                                       StrId::STR_SPACING_200_PERCENT};
 constexpr StrId CHARACTER_SPACING_IDS[] = {StrId::STR_SPACING_MINUS_2, StrId::STR_SPACING_MINUS_1,
@@ -236,8 +240,6 @@ void TextSettingsActivity::buildScreen(UiScreen& screen) {
     rowItems_[i].value = rowValues_[i].empty() ? nullptr : rowValues_[i].c_str();
     if (tab_ == Tab::Style) {
       GUI.setCheckboxRow(rowItems_[i], styleRowChecked(i));
-    } else if (tab_ == Tab::Layout && i == static_cast<int>(LayoutRow::ParaSpacing)) {
-      GUI.setCheckboxRow(rowItems_[i], SETTINGS.extraParagraphSpacing);
     }
   }
 
@@ -263,7 +265,7 @@ const char* TextSettingsActivity::confirmLabelText() const {
   }
   switch (tab_) {
     case Tab::Layout:
-      return ringPos() - 1 == static_cast<int>(LayoutRow::ParaSpacing) ? tr(STR_TOGGLE) : tr(STR_SELECT);
+      return tr(STR_SELECT);
     case Tab::Style:
       return tr(STR_TOGGLE);
     default:
@@ -385,8 +387,12 @@ void TextSettingsActivity::applySize(int listIndex) {
 void TextSettingsActivity::confirmLayoutRow(int row) {
   switch (static_cast<LayoutRow>(row)) {
     case LayoutRow::ParaSpacing:
-      SETTINGS.extraParagraphSpacing = !SETTINGS.extraParagraphSpacing;
-      SETTINGS.saveToFile();
+      optionPopup_.show(StrId::STR_EXTRA_SPACING, PARAGRAPH_SPACING_IDS,
+                        static_cast<int>(std::size(PARAGRAPH_SPACING_IDS)),
+                        std::min<int>(SETTINGS.extraParagraphSpacing, 4), [](int idx) {
+                          SETTINGS.extraParagraphSpacing = static_cast<uint8_t>(idx);
+                          SETTINGS.saveToFile();
+                        });
       requestUpdate();
       break;
     case LayoutRow::ParaIndentation: {
@@ -460,6 +466,8 @@ std::string TextSettingsActivity::layoutValueText(int row) const {
       const uint8_t v = SETTINGS.lineSpacing;
       return I18N.get(LINE_SPACING_IDS[v < std::size(LINE_SPACING_IDS) ? v : CrossPointSettings::LINE_SPACING_120]);
     }
+    case LayoutRow::ParaSpacing:
+      return I18N.get(PARAGRAPH_SPACING_IDS[std::min<int>(SETTINGS.extraParagraphSpacing, 4)]);
     case LayoutRow::ParaIndentation: {
       const int spaces = std::clamp<int>(SETTINGS.paragraphIndentSpaces, 0, 5);
       return spaces == 0 ? tr(STR_STATE_OFF) : std::to_string(spaces);
