@@ -150,6 +150,13 @@ void ReaderActivity::onExit() {
   // durable before a subscriber can act on the exit notification.
   flushReaderSession();
 
+  // rs5: the home screen draws a progress bar under each recent book.
+  if (bookRemembered) {
+    const ScreenshotInfo progressInfo = getScreenshotInfo();
+    RECENT_BOOKS.setProgress(bookPath,
+                             progressInfo.endProgressPercent >= 100 ? 100 : progressInfo.progressPercent);
+  }
+
   if (pluginevents::anySubscriber(pluginevents::Event::ReaderExit)) {
     const ScreenshotInfo info = getScreenshotInfo();
     char percent[8];

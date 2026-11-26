@@ -10,13 +10,14 @@ struct RecentBook {
   std::string title;
   std::string author;
   std::string coverBmpPath;
+  int8_t percent = -1;  // rs5: whole-book progress 0..100 saved when the reader closes; -1 = unknown
 
   bool operator==(const RecentBook& other) const { return path == other.path; }
 };
 
 class RecentBooksStore : public PersistableStore<RecentBooksStore> {
  public:
-  static constexpr int MAX_RECENT_BOOKS = 10;
+  static constexpr int MAX_RECENT_BOOKS = 12;
 
  private:
   std::vector<RecentBook> recentBooks;
@@ -35,6 +36,8 @@ class RecentBooksStore : public PersistableStore<RecentBooksStore> {
   void addBook(const std::string& path, const std::string& title, const std::string& author,
                const std::string& coverBmpPath);
 
+  // rs5: remember the book's whole-book progress (0..100) for the home screen.
+  void setProgress(const std::string& path, int percent);
   void updateBook(const std::string& path, const std::string& title, const std::string& author,
                   const std::string& coverBmpPath);
 

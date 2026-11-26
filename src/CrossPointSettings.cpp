@@ -199,6 +199,12 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     needsResave = true;
   }
 
+  // rs5: one theme only; older saves held 0..4 for the removed themes.
+  if (uiTheme != LYRA_EXTENDED) {
+    uiTheme = LYRA_EXTENDED;
+    needsResave = true;
+  }
+
   // rs3v2: paragraph spacing levels (0..4) live under "paragraphSpacing5"; the old on/off
   // "extraParagraphSpacing" (on = half a line) becomes 50% / Off.
   if (doc["paragraphSpacing5"].isNull() && !doc["extraParagraphSpacing"].isNull()) {

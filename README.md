@@ -1,10 +1,13 @@
-# Random CrossPoint X4 Pro (rs3v2)
+# Random CrossPoint X4 Pro (rs5)
 
 Personal build of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) 2.0.0 for the **Xteink X4 Pro only** (ESP32-S3). Do not flash it on other devices.
 
 Changes from CrossPoint 2.0.0:
 - Manga (.xtc/.xtch): Reader Menu with right-to-left page turn and its own refresh rate; the Home long-press opens the manga menu when Home Button Gestures is set to Reader Menu.
 - Text settings: line spacing 0% to +70% in 10% steps (+20% default); word spacing 25-200% in 25% steps; screen margin 0-25 in steps of 5; extra paragraph spacing Off / 25% / 50% (default) / 75% / 100% of a line.
+- Theme: Lyra Extended only (the UI Theme setting stays for future themes; Classic, Lyra, RoundedRaff and Cover Grid removed).
+- Home: up to 12 recent books as small covers (4 x 3 in portrait), each with a reading-progress bar and its title; the Files / Library / Transfer / Settings buttons sit in a 2 x 2 grid at the bottom.
+- Reader quick menu starts with Text Settings, Go to %, Bookmarks.
 - Removed: Bluetooth page turner (radio stays off), GIF images in EPUBs, KOReader Sync server profiles, Azerbaijani, all other devices.
 - OTA updates come from this repository's releases.
 
